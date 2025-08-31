@@ -1,0 +1,12 @@
+groups:
+  - name: cost-alerts
+    rules:
+      - alert: CostSpike
+        expr: cost_today_total > cost_threshold
+        for: 5m
+        labels:
+          severity: warning
+          topic: costs
+        annotations:
+          summary: "Cost spike detected"
+          description: "Today's cost {{ $value }} exceeds threshold."

@@ -1,0 +1,10 @@
+.env
+*.pyc
+__pycache__/
+pgdata/
+gcp-key.json
+.idea/
+.vscode/
+dist/
+build/
+*.log
