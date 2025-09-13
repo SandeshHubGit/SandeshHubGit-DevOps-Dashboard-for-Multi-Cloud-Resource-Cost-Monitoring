@@ -1,0 +1,13 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'sandeshgaikwad1994@gmail.com'
+  smtp_auth_username: 'sandeshgaikwad1994@gmail.com'
+  smtp_auth_password: 'oydl vfyf keec qqxt'
+
+route:
+  receiver: email-me
+
+receivers:
+  - name: email-me
+    email_configs:
+    - to: 'sandeshgaiiwad9003@gmail.com'
