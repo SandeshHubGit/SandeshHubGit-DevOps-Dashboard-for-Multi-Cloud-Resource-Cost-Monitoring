@@ -1,0 +1,97 @@
+services:
+  mongo:
+    image: mongo:8
+    container_name: mongo
+    command: ["--auth"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root_password
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      # Optional: auto-create metrics user/collection on first run
+      # - ./docker/mongo-init/init.js:/docker-entrypoint-initdb.d/init.js:ro
+
+  mongo-exporter:
+    image: percona/mongodb_exporter:0.39.0
+    container_name: mongo-exporter
+    command:
+      - '--mongodb.uri=mongodb://metrics:metrics_password@mongo:27017/?authSource=admin&authMechanism=SCRAM-SHA-256'
+      # These *-colls flags implicitly enable the collectors in this version
+      - '--mongodb.collstats-colls=cost_monitoring.costs'
+      - '--mongodb.indexstats-colls=cost_monitoring.costs'
+    ports:
+      - "9216:9216"
+    depends_on:
+      - mongo
+
+  cost-exporter:
+    build:
+      context: ./docker/cost_exporter
+    container_name: cost-exporter
+    environment:
+      MONGO_URI: mongodb://metrics:metrics_password@mongo:27017/cost_monitoring?authSource=admin&authMechanism=SCRAM-SHA-256
+      DB_NAME: cost_monitoring
+      COLL_NAME: costs
+      PORT: "8000"
+      REFRESH_SECONDS: "30"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerting/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - cost-exporter
+      - mongo-exporter
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: backend
+    environment:
+      # Mongo with auth (root user created at init)
+      MONGO_URI: mongodb://root:root_password@mongo:27017/cost_monitoring?authSource=admin
+      MONGO_DB: cost_monitoring
+      REFRESH_SECONDS: "60"
+
+      # AWS
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
+      # Azure
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+      AZURE_SUBSCRIPTION_ID: ${AZURE_SUBSCRIPTION_ID}
+
+      # GCP BigQuery
+      GCP_BQ_PROJECT_ID: ${GCP_BQ_PROJECT_ID}
+      GCP_BQ_DATASET: ${GCP_BQ_DATASET}
+      GCP_BQ_TABLE: ${GCP_BQ_TABLE}
+      GOOGLE_APPLICATION_CREDENTIALS: /var/secrets/gcp-key.json
+    volumes:
+      - ./secrets/gcp-key.json:/var/secrets/gcp-key.json:ro
+    depends_on:
+      - mongo
+
+volumes:
+  mongo_data:
+  grafana_data:

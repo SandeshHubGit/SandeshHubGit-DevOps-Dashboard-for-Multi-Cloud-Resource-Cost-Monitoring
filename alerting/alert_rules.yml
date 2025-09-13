@@ -1,0 +1,23 @@
+groups:
+- name: CostAlerts
+  rules:
+  # Any provider day cost > $100 (adjust)
+  - alert: HighCostByProvider
+    expr: cost_amount_sum > 50
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High cost for {{ $labels.provider }}"
+      description: "Provider {{ $labels.provider }} cost is {{ $value | printf \"%.2f\" }} USD in the last scrape."
+
+  # Total docs drop (no ingests in a while)
+  - alert: CostDocsNotUpdating
+    expr: increase(cost_docs_total_all[2h]) == 0
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: "No new cost docs in 2h"
+      description: "Check fetchers / scheduler / credentials."
+
